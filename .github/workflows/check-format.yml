@@ -1,0 +1,49 @@
+name: Format Check
+
+on:
+  pull_request_target:
+    branches: [ main ]
+
+jobs:
+  check-newlines:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Check for 4 consecutive newlines in changed files
+        run: |
+          python3 -c '
+          import subprocess, sys, re, os
+
+          base_sha = "${{ github.event.pull_request.base.sha }}"
+          head_sha = "${{ github.event.pull_request.head.sha }}"
+
+          cmd = ["git", "diff", "--name-only", "--diff-filter=ACMR", base_sha, head_sha]
+          files = subprocess.check_output(cmd).decode("utf-8").splitlines()
+
+          failed = False
+
+          for f in files:
+              if f.startswith(".github/") or not os.path.isfile(f):
+                  continue
+              try:
+                  with open(f, "rb") as fp:
+                      raw = fp.read()
+                  if b"\x00" in raw:
+                      continue
+                  text = raw.decode("utf-8").replace("\r\n", "\n")
+
+                  for match in re.finditer(r"\n{4,}", text):
+                      line_num = text[:match.start()].count("\n") + 1
+                      print(f"❌ [格式錯誤] {f} 第 {line_num} 行附近出現連續 4 個以上換行")
+                      failed = True
+              except UnicodeDecodeError:
+                  continue
+
+          if failed:
+              sys.exit(1)
+          print(f"✅ 已檢查 {len(files)} 個異動檔案，排版全數通過！")
