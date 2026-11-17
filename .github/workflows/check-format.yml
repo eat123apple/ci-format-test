@@ -15,12 +15,15 @@ jobs:
           fetch-depth: 0
 
       - name: Check for 4 consecutive newlines in changed files
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          python3 -c '
+          python3 - << 'EOF'
           import subprocess, sys, re, os
 
-          base_sha = "${{ github.event.pull_request.base.sha }}"
-          head_sha = "${{ github.event.pull_request.head.sha }}"
+          base_sha = os.environ["BASE_SHA"]
+          head_sha = os.environ["HEAD_SHA"]
 
           cmd = ["git", "diff", "--name-only", "--diff-filter=ACMR", base_sha, head_sha]
           files = subprocess.check_output(cmd).decode("utf-8").splitlines()
@@ -47,3 +50,4 @@ jobs:
           if failed:
               sys.exit(1)
           print(f"✅ 已檢查 {len(files)} 個異動檔案，排版全數通過！")
+          EOF
